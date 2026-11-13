@@ -79,30 +79,43 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              GlassIconButton(
-                icon: Icons.arrow_back,
-                size: 42,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Égaliseur Studio', style: AppTypography.headlineSmall()),
-                  Text(
-                    'Traitement DSP matériel 32-bit',
-                    style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+          Expanded(
+            child: Row(
+              children: [
+                GlassIconButton(
+                  icon: Icons.arrow_back,
+                  size: 40,
+                  iconSize: 20,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Égaliseur Studio',
+                        style: AppTypography.headlineSmall(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Traitement DSP matériel 32-bit',
+                        style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           GlassButton(
             label: 'Sauvegarder',
-            icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            icon: const Icon(Icons.bookmark_add_outlined, size: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             onPressed: () => _showSaveCustomPresetDialog(context),
           ),
         ],
@@ -194,42 +207,52 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh.withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.graphic_eq, color: AppColors.primaryContainer, size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Profil : ${active.name}',
-                          style: AppTypography.labelMedium(
-                            color: AppColors.primaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerHigh.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.graphic_eq, color: AppColors.primaryContainer, size: 14),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Profil : ${active.name}',
+                                style: AppTypography.labelMedium(
+                                  color: AppColors.primaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'FLAC 96kHz',
+                        style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+                      ),
                     ),
-                    child: Text(
-                      'FLAC 96kHz',
-                      style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               // Master EQ Toggle
               Switch(
                 value: eq.isEnabled,
@@ -355,26 +378,37 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text('Spectre 10-Bandes', style: AppTypography.titleMedium()),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(6),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Spectre 10-Bandes',
+                        style: AppTypography.titleMedium(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    child: const Text('Q: 1.41', style: TextStyle(fontSize: 10, color: AppColors.onSurfaceMuted)),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('Q: 1.41', style: TextStyle(fontSize: 10, color: AppColors.onSurfaceMuted)),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text('+12 dB', style: AppTypography.labelSmall(color: AppColors.secondaryHighlight)),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Text('0 dB', style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted)),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Text('-12 dB', style: AppTypography.labelSmall(color: AppColors.primaryContainer)),
                 ],
               ),
@@ -480,13 +514,23 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.surround_sound, color: AppColors.primaryContainer),
-                      const SizedBox(width: 8),
-                      Text('Bass Boost Dynamique', style: AppTypography.titleMedium()),
-                    ],
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.surround_sound, color: AppColors.primaryContainer),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Bass Boost Dynamique',
+                            style: AppTypography.titleMedium(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '${(eq.bassBoost * 100).toInt()}%',
                     style: AppTypography.labelMedium(
@@ -517,13 +561,23 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.spatial_audio_off, color: AppColors.secondaryHighlight),
-                      const SizedBox(width: 8),
-                      Text('Spatialisation 3D (Surround)', style: AppTypography.titleMedium()),
-                    ],
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.spatial_audio_off, color: AppColors.secondaryHighlight),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Spatialisation 3D (Surround)',
+                            style: AppTypography.titleMedium(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '${(eq.virtualizer * 100).toInt()}%',
                     style: AppTypography.labelMedium(
@@ -552,22 +606,34 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.waves, color: AppColors.primaryContainer),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Réverbération Studio', style: AppTypography.titleMedium()),
-                      Text(
-                        'Environnement acoustique virtuel',
-                        style: AppTypography.bodySmall(color: AppColors.onSurfaceMuted),
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.waves, color: AppColors.primaryContainer),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Réverbération Studio',
+                            style: AppTypography.titleMedium(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Environnement acoustique virtuel',
+                            style: AppTypography.bodySmall(color: AppColors.onSurfaceMuted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               DropdownButton<String>(
                 value: eq.reverbPreset,
                 dropdownColor: AppColors.surfaceContainerLowest,

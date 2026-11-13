@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-import 'package:mind_music/core/models/media_item_model.dart';
 import 'package:mind_music/core/services/ads_service.dart';
 import 'package:mind_music/core/services/equalizer_service.dart';
 import 'package:mind_music/core/services/playback_engine_service.dart';
 import 'package:mind_music/core/services/playlist_service.dart';
-import 'package:mind_music/core/services/preferences_service.dart';
 import 'package:mind_music/core/services/storage_scanner_service.dart';
 import 'package:mind_music/core/services/subscription_service.dart';
 import 'package:mind_music/core/theme/theme_provider.dart';

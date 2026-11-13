@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
+import '../database/database_service.dart';
 import '../models/media_item_model.dart';
 import 'ads_service.dart';
 import '../security/security_validator.dart';
@@ -13,6 +15,7 @@ enum PlaybackMode {
 
 class PlaybackEngineService with ChangeNotifier {
   final AdsService _adsService;
+  final DatabaseService _dbService;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   VideoPlayerController? _videoController;
@@ -35,7 +38,8 @@ class PlaybackEngineService with ChangeNotifier {
   Duration? _remainingSleepDuration;
   bool _isSleepTimerActive = false;
 
-  PlaybackEngineService(this._adsService) {
+  PlaybackEngineService(this._adsService, {DatabaseService? dbService})
+      : _dbService = dbService ?? DatabaseService() {
     _initAudioStreams();
   }
 
@@ -104,17 +108,21 @@ class PlaybackEngineService with ChangeNotifier {
 
     if (_mode == PlaybackMode.audio) {
       await _disposeVideoController();
+      _dbService.recordMediaPlay(media.id);
       try {
         if (media.filePath.startsWith('assets/')) {
-          // Play simulated audio for demo files
           await _audioPlayer.setAsset(media.filePath);
         } else {
-          await _audioPlayer.setFilePath(media.filePath);
+          final file = File(media.filePath);
+          if (await file.exists()) {
+            await _audioPlayer.setFilePath(media.filePath);
+          } else {
+            debugPrint('[PlaybackEngine] Audio file does not exist: ${media.filePath}');
+          }
         }
         await _audioPlayer.play();
       } catch (e) {
-        // Fallback for mock/virtual items in emulator
-        debugPrint('[PlaybackEngine] Audio play notice: $e (running in preview state)');
+        debugPrint('[PlaybackEngine] Audio play error: $e');
         _isPlaying = true;
         _adsService.setPlaybackState(isPlaying: true);
         notifyListeners();
@@ -123,12 +131,18 @@ class PlaybackEngineService with ChangeNotifier {
       // Video Playback
       await _audioPlayer.pause();
       await _disposeVideoController();
+      _dbService.recordMediaPlay(media.id);
 
       try {
         if (media.filePath.startsWith('assets/')) {
           _videoController = VideoPlayerController.asset(media.filePath);
         } else {
-          _videoController = VideoPlayerController.networkUrl(Uri.file(media.filePath));
+          final file = File(media.filePath);
+          if (await file.exists()) {
+            _videoController = VideoPlayerController.file(file);
+          } else {
+            _videoController = VideoPlayerController.networkUrl(Uri.file(media.filePath));
+          }
         }
 
         await _videoController!.initialize();
@@ -137,7 +151,7 @@ class PlaybackEngineService with ChangeNotifier {
         _videoController!.addListener(_videoListener);
         await _videoController!.play();
       } catch (e) {
-        debugPrint('[PlaybackEngine] Video play notice: $e (running in preview state)');
+        debugPrint('[PlaybackEngine] Video play error: $e');
         _isPlaying = true;
         _adsService.setPlaybackState(isPlaying: true);
       }

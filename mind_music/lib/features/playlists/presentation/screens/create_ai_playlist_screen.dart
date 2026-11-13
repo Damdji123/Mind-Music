@@ -244,51 +244,67 @@ class _CreateAiPlaylistScreenState extends State<CreateAiPlaylistScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              GlassIconButton(
-                icon: Icons.arrow_back,
-                size: 42,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          Expanded(
+            child: Row(
+              children: [
+                GlassIconButton(
+                  icon: Icons.arrow_back,
+                  size: 40,
+                  iconSize: 20,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Créer une Playlist', style: AppTypography.headlineSmall()),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryContainer.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.auto_awesome, color: AppColors.primaryContainer, size: 11),
-                            const SizedBox(width: 4),
-                            Text(
-                              'AI Mix',
-                              style: AppTypography.labelSmall(
-                                color: AppColors.primaryContainer,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Créer une Playlist',
+                              style: AppTypography.headlineSmall(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryContainer.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.auto_awesome, color: AppColors.primaryContainer, size: 11),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'AI Mix',
+                                  style: AppTypography.labelSmall(
+                                    color: AppColors.primaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        'Bibliothèque locale • Haute fidélité',
+                        style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                  Text(
-                    'Bibliothèque locale • Haute fidélité',
-                    style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           GlassButton(
             label: 'Enregistrer',
             icon: const Icon(Icons.check, size: 18),

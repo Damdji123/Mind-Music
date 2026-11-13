@@ -32,13 +32,14 @@ class ContinueListeningCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = mediaItem?.title ?? 'Better Days';
-    final artist = mediaItem?.artist ?? 'Omah Lay';
+    final hasMedia = mediaItem != null;
+    final title = mediaItem?.title ?? 'No Active Media';
+    final artist = mediaItem?.artist ?? 'Scan storage to play your music & video';
     final isVideo = mediaItem?.isVideo ?? false;
-    final format = mediaItem?.format ?? 'FLAC';
-    final isHiRes = mediaItem?.isHiRes ?? true;
+    final format = mediaItem?.format ?? 'Offline';
+    final isHiRes = mediaItem?.isHiRes ?? false;
 
-    final double progressValue = duration.inMilliseconds > 0
+    final double progressValue = (hasMedia && duration.inMilliseconds > 0)
         ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
         : 0.0;
 
@@ -58,13 +59,17 @@ class ContinueListeningCard extends StatelessWidget {
                 size: 16,
               ),
               const SizedBox(width: 6),
-              Text(
-                isVideo ? 'CONTINUE WATCHING' : 'CONTINUE LISTENING',
-                style: AppTypography.labelSmall(
-                  color: isVideo ? AppColors.secondaryHighlight : AppColors.primaryContainer,
-                ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 1.2),
+              Expanded(
+                child: Text(
+                  isVideo ? 'CONTINUE WATCHING' : 'CONTINUE LISTENING',
+                  style: AppTypography.labelSmall(
+                    color: isVideo ? AppColors.secondaryHighlight : AppColors.primaryContainer,
+                  ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 1.2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(

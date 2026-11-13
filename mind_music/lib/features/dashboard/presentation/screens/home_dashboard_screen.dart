@@ -6,13 +6,10 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/services/playback_engine_service.dart';
 import '../../../../core/services/storage_scanner_service.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../../core/widgets/glass_icon_button.dart';
 import '../../../../core/widgets/liquid_glow.dart';
 import '../../../../core/widgets/native_ad_card.dart';
-import '../../../../core/widgets/premium_badge.dart';
 import '../widgets/continue_listening_card.dart';
 import '../widgets/floating_nav_bar.dart';
 import '../widgets/media_stats_row.dart';
@@ -21,6 +18,7 @@ import '../../../ai_copilot/presentation/screens/ai_voice_assistant_screen.dart'
 import '../../../library/presentation/screens/local_library_screen.dart';
 import '../../../player/presentation/screens/now_playing_screen.dart';
 import '../../../playlists/presentation/screens/playlists_screen.dart';
+import '../../../settings/presentation/screens/settings_screen.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -45,45 +43,59 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
-                // Top Custom Header with AppLogo
+                // Top Custom Header with AppLogo (Positioned cleanly below status bar & camera notch)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
+                    padding: EdgeInsets.fromLTRB(
                       AppDimensions.margin,
-                      AppDimensions.spaceSm,
+                      MediaQuery.of(context).padding.top + 16.0,
                       AppDimensions.margin,
                       AppDimensions.spaceMd,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const AppLogo(size: 38),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Mind-Music',
-                                  style: AppTypography.headlineSmall(color: AppColors.onSurface),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const AppLogo(size: 46),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Mind-Music',
+                                      style: AppTypography.headlineMedium(color: AppColors.onSurface).copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.5,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Version 1.0 • Liquid Glass',
+                                      style: AppTypography.labelSmall(color: AppColors.primaryContainer).copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  'Liquid Glass Edition',
-                                  style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
-                                ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const PremiumBadge(),
-                            const SizedBox(width: 8),
                             GlassIconButton(
                               icon: Icons.sync,
-                              size: 38,
-                              iconSize: 20,
+                              size: 42,
+                              iconSize: 22,
                               onPressed: () {
                                 scanner.scanDeviceStorage();
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -96,10 +108,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             ),
                             const SizedBox(width: 8),
                             GlassIconButton(
-                              icon: Icons.tune,
-                              size: 38,
-                              iconSize: 20,
-                              onPressed: () => _showThemeAndSettingsDialog(context),
+                              icon: Icons.settings_rounded,
+                              size: 42,
+                              iconSize: 22,
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -419,59 +435,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  void _showThemeAndSettingsDialog(BuildContext context) {
-    final themeProvider = context.read<ThemeProvider>();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerHigh,
-        shape: RoundedRectangleBorder(borderRadius: AppDimensions.borderLg),
-        title: Text('App Preferences', style: AppTypography.headlineSmall()),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Aesthetic Theme Engine', style: AppTypography.labelMedium()),
-            const SizedBox(height: 8),
-            _buildThemeOption(ctx, themeProvider, AppThemeMode.liquidGlass, 'Liquid Glass (Default)'),
-            _buildThemeOption(ctx, themeProvider, AppThemeMode.oledDark, 'OLED Ultra Dark'),
-            _buildThemeOption(ctx, themeProvider, AppThemeMode.cyberpunk, 'Cyberpunk Neon'),
-            _buildThemeOption(ctx, themeProvider, AppThemeMode.sunset, 'Sunset Glow'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildThemeOption(
-    BuildContext ctx,
-    ThemeProvider provider,
-    AppThemeMode mode,
-    String title,
-  ) {
-    final isSelected = provider.currentMode == mode;
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-        color: isSelected ? AppColors.primaryContainer : AppColors.onSurfaceMuted,
-      ),
-      title: Text(title, style: AppTypography.bodyMedium(color: AppColors.onSurface)),
-      onTap: () {
-        provider.setTheme(mode);
-        Navigator.pop(ctx);
-      },
     );
   }
 }

@@ -22,46 +22,59 @@ class QuickAiBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Icon(
-              Icons.auto_awesome,
-              color: AppColors.secondaryHighlight,
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'AI COPILOT',
-              style: AppTypography.labelSmall(
-                color: AppColors.secondaryHighlight,
-              ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 1.2),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.secondaryContainer.withValues(alpha: 0.2),
-                borderRadius: AppDimensions.borderFull,
-                border: Border.all(
-                  color: AppColors.secondaryHighlight.withValues(alpha: 0.3),
-                  width: 0.8,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.auto_awesome,
+                  color: AppColors.secondaryHighlight,
+                  size: 16,
                 ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.success,
+                const SizedBox(width: 6),
+                Text(
+                  'AI COPILOT',
+                  style: AppTypography.labelSmall(
+                    color: AppColors.secondaryHighlight,
+                  ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 1.2),
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryContainer.withValues(alpha: 0.2),
+                  borderRadius: AppDimensions.borderFull,
+                  border: Border.all(
+                    color: AppColors.secondaryHighlight.withValues(alpha: 0.3),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.success,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Offline Neural Engine',
-                    style: AppTypography.labelSmall(color: AppColors.onSurfaceVariant),
-                  ),
-                ],
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        'Offline Neural Engine',
+                        style: AppTypography.labelSmall(color: AppColors.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

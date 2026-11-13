@@ -14,7 +14,6 @@ import '../../../../core/widgets/glass_icon_button.dart';
 import '../../../../core/widgets/glass_text_field.dart';
 import '../../../../core/widgets/liquid_glow.dart';
 import '../../../../core/widgets/native_ad_card.dart';
-import '../../../../core/widgets/premium_badge.dart';
 import '../../../player/presentation/screens/now_playing_screen.dart';
 import 'create_ai_playlist_screen.dart';
 
@@ -116,33 +115,40 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              const AppLogo(size: 32),
-              const SizedBox(width: AppDimensions.spaceSm),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'MYPLAYER',
-                    style: AppTypography.labelSmall(
-                      color: AppColors.onSurfaceMuted,
-                      letterSpacing: 1.2,
-                    ),
+          Expanded(
+            child: Row(
+              children: [
+                const AppLogo(size: 32),
+                const SizedBox(width: AppDimensions.spaceSm),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'MYPLAYER',
+                        style: AppTypography.labelSmall(
+                          color: AppColors.onSurfaceMuted,
+                          letterSpacing: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Playlists & Mix',
+                        style: AppTypography.titleMedium(color: AppColors.onSurface),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  Text(
-                    'Playlists & Mix',
-                    style: AppTypography.titleMedium(color: AppColors.onSurface),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Row(
             children: [
-              const PremiumBadge(),
-              const SizedBox(width: AppDimensions.spaceSm),
               GlassIconButton(
                 icon: Icons.settings,
                 size: 40,

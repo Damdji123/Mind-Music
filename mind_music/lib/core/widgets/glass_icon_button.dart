@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
@@ -49,37 +48,31 @@ class GlassIconButton extends StatelessWidget {
               ]
             : null,
       ),
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: borderRadius,
+          onTap: onPressed,
+          splashColor: AppColors.primaryContainer.withValues(alpha: 0.2),
+          child: Container(
+            decoration: BoxDecoration(
               borderRadius: borderRadius,
-              onTap: onPressed,
-              splashColor: AppColors.primaryContainer.withValues(alpha: 0.2),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: borderRadius,
-                  color: isPrimary
-                      ? AppColors.primaryContainer.withValues(alpha: 0.25)
-                      : AppColors.glassDefault,
-                  border: Border.all(
-                    color: isPrimary
-                        ? AppColors.primaryContainer.withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.15),
-                    width: 1.0,
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    icon,
-                    size: iconSize,
-                    color: iconColor ??
-                        (isPrimary ? AppColors.primaryFixed : AppColors.onSurface),
-                  ),
-                ),
+              color: isPrimary
+                  ? AppColors.primaryContainer.withValues(alpha: 0.25)
+                  : AppColors.glassDefault,
+              border: Border.all(
+                color: isPrimary
+                    ? AppColors.primaryContainer.withValues(alpha: 0.6)
+                    : Colors.white.withValues(alpha: 0.15),
+                width: 1.0,
+              ),
+            ),
+            child: Center(
+              child: Icon(
+                icon,
+                size: iconSize,
+                color: iconColor ??
+                    (isPrimary ? AppColors.primaryFixed : AppColors.onSurface),
               ),
             ),
           ),

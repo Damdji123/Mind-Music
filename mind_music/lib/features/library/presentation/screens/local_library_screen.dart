@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../../core/models/media_folder_model.dart';
 import '../../../../core/models/media_item_model.dart';
 import '../../../../core/services/playback_engine_service.dart';
 import '../../../../core/services/storage_scanner_service.dart';
@@ -13,8 +14,9 @@ import '../../../../core/widgets/glass_text_field.dart';
 import '../../../../core/widgets/liquid_glow.dart';
 import '../../../player/presentation/screens/now_playing_screen.dart';
 
-enum LibraryTab { all, music, videos, folders }
+enum LibraryTab { all, music, videos, folders, favorites }
 enum SortOrder { name, artist, date, size }
+enum FolderMediaFilter { all, audioOnly, videoOnly }
 
 class LocalLibraryScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -30,6 +32,7 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
   SortOrder _sortOrder = SortOrder.name;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  final Map<String, FolderMediaFilter> _folderFilters = {};
 
   @override
   void initState() {
@@ -38,6 +41,7 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
       1 => LibraryTab.music,
       2 => LibraryTab.videos,
       3 => LibraryTab.folders,
+      4 => LibraryTab.favorites,
       _ => LibraryTab.all,
     };
   }
@@ -56,6 +60,9 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
         break;
       case LibraryTab.videos:
         items = List.from(scanner.videoFiles);
+        break;
+      case LibraryTab.favorites:
+        items = List.from(scanner.favoriteFiles);
         break;
       case LibraryTab.folders:
       case LibraryTab.all:
@@ -110,27 +117,39 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        GlassIconButton(
-                          icon: Icons.arrow_back,
-                          size: 38,
-                          iconSize: 20,
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Library', style: AppTypography.headlineSmall(color: AppColors.onSurface)),
-                            Text(
-                              'Local storage • ${scanner.allMedia.length} indexed files',
-                              style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          GlassIconButton(
+                            icon: Icons.arrow_back,
+                            size: 38,
+                            iconSize: 20,
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Library',
+                                  style: AppTypography.headlineSmall(color: AppColors.onSurface),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  'SQLite Indexed • ${scanner.allMedia.length} real files',
+                                  style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Row(
                       children: [
                         GlassIconButton(
@@ -140,7 +159,10 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                           onPressed: () {
                             scanner.scanDeviceStorage();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Scanning local device storage...')),
+                              const SnackBar(
+                                content: Text('Scanning device storage for audio & video...'),
+                                backgroundColor: AppColors.surfaceContainerHigh,
+                              ),
                             );
                           },
                         ),
@@ -167,12 +189,29 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                 ),
               ),
 
+              // Scanning indicator if active
+              if (scanner.isScanning)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
+                  child: Column(
+                    children: [
+                      LinearProgressIndicator(
+                        value: scanner.scanProgress > 0 ? scanner.scanProgress : null,
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        valueColor: const AlwaysStoppedAnimation(AppColors.primaryContainer),
+                        minHeight: 3,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+
               // 2. Search Field with Voice Trigger
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
                 child: GlassTextField(
                   controller: _searchController,
-                  hintText: 'Search songs, videos, artists, folders...',
+                  hintText: 'Search real files, artists, directories...',
                   leading: const Icon(Icons.search, color: AppColors.primaryContainer, size: 20),
                   onChanged: (val) {
                     setState(() {
@@ -181,7 +220,7 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                   },
                   onVoicePressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('🎙️ Say a song or artist name to filter...')),
+                      const SnackBar(content: Text('🎙️ Voice Search: Say a song or folder to filter...')),
                     );
                   },
                 ),
@@ -189,7 +228,7 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
 
               const SizedBox(height: 12),
 
-              // 3. Segmented Filter Tabs
+              // 3. Segmented Filter Tabs matching document
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
                 child: SingleChildScrollView(
@@ -220,6 +259,12 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                         icon: Icons.folder,
                         tab: LibraryTab.folders,
                       ),
+                      const SizedBox(width: 8),
+                      _buildTabChip(
+                        label: 'Favorites (${scanner.favoriteFiles.length})',
+                        icon: Icons.favorite,
+                        tab: LibraryTab.favorites,
+                      ),
                     ],
                   ),
                 ),
@@ -227,13 +272,13 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
 
               const SizedBox(height: 14),
 
-              // 4. Scrollable List with AI Smart Curation Card
+              // 4. Scrollable List with empty states & folder views
               Expanded(
                 child: ListView(
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: AppDimensions.margin),
                   children: [
-                    // AI Smart Curation Card from Stitch
+                    // AI Smart Curation Card from Stitch design
                     _buildAiSmartCurationCard(context, scanner),
                     const SizedBox(height: 16),
 
@@ -246,18 +291,40 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                           style: AppTypography.titleMedium(color: AppColors.onSurface),
                         ),
                         Text(
-                          '${filteredItems.length} items',
+                          _selectedTab == LibraryTab.folders
+                              ? '${scanner.folders.keys.length} folders'
+                              : '${filteredItems.length} items',
                           style: AppTypography.labelSmall(color: AppColors.primary),
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
 
-                    // Media Items List
+                    // Render Content or Clean Empty State
                     if (_selectedTab == LibraryTab.folders)
-                      ..._buildFolderViews(scanner, playback)
+                      if (scanner.folders.isEmpty)
+                        _buildEmptyState(
+                          icon: Icons.folder_open,
+                          title: 'No Media Folders Found',
+                          message:
+                              'Mind-Music discovers real folders on your device storage containing audio and video files.',
+                          actionLabel: 'Scan Device Storage',
+                          onAction: () => scanner.scanDeviceStorage(),
+                        )
+                      else
+                        ..._buildFolderViews(scanner, playback)
+                    else if (filteredItems.isEmpty)
+                      _buildEmptyState(
+                        icon: _getEmptyStateIcon(),
+                        title: _getEmptyStateTitle(),
+                        message: _getEmptyStateMessage(),
+                        actionLabel: 'Scan Device Storage',
+                        onAction: () => scanner.scanDeviceStorage(),
+                      )
                     else
-                      ...filteredItems.map((item) => _buildMediaListTile(context, item, playback)),
+                      ...filteredItems.map(
+                        (item) => _buildMediaListTile(context, item, playback, scanner),
+                      ),
 
                     const SizedBox(height: 96), // Clearance for mini player
                   ],
@@ -282,9 +349,106 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
         return 'Video Files';
       case LibraryTab.folders:
         return 'Storage Directories';
+      case LibraryTab.favorites:
+        return 'Favorite Media';
       case LibraryTab.all:
         return 'All Indexed Media';
     }
+  }
+
+  IconData _getEmptyStateIcon() {
+    switch (_selectedTab) {
+      case LibraryTab.music:
+        return Icons.music_off;
+      case LibraryTab.videos:
+        return Icons.videocam_off;
+      case LibraryTab.favorites:
+        return Icons.favorite_border;
+      case LibraryTab.folders:
+        return Icons.folder_open;
+      case LibraryTab.all:
+        return Icons.library_music;
+    }
+  }
+
+  String _getEmptyStateTitle() {
+    switch (_selectedTab) {
+      case LibraryTab.music:
+        return 'No Music Files Found';
+      case LibraryTab.videos:
+        return 'No Video Files Found';
+      case LibraryTab.favorites:
+        return 'No Favorites Added';
+      case LibraryTab.folders:
+        return 'No Storage Folders Found';
+      case LibraryTab.all:
+        return 'No Media Files Found';
+    }
+  }
+
+  String _getEmptyStateMessage() {
+    switch (_selectedTab) {
+      case LibraryTab.music:
+        return 'No real audio files were discovered in your device storage (/Music, /Download). Tap Scan Storage to search.';
+      case LibraryTab.videos:
+        return 'No video files were discovered in your device storage (/Movies, /DCIM, /Download). Tap Scan Storage to search.';
+      case LibraryTab.favorites:
+        return 'Tap the heart icon on any music or video file in your library to add it to your favorites.';
+      case LibraryTab.folders:
+        return 'Directories containing audio and video files will appear here once scanned from device storage.';
+      case LibraryTab.all:
+        return 'Mind-Music plays real audio and video files directly from your physical storage via SQLite caching.';
+    }
+  }
+
+  // --- Empty State Widget ---
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String message,
+    required String actionLabel,
+    required VoidCallback onAction,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppDimensions.spaceXl),
+      child: GlassContainer(
+        elevation: GlassElevation.level1,
+        padding: const EdgeInsets.all(AppDimensions.spaceXl),
+        borderRadius: AppDimensions.borderLg,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primaryContainer.withValues(alpha: 0.15),
+              ),
+              child: Icon(icon, color: AppColors.primaryContainer, size: 36),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: AppTypography.titleMedium(color: AppColors.onSurface),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: AppTypography.bodySmall(color: AppColors.onSurfaceSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            GlassButton(
+              label: actionLabel,
+              icon: const Icon(Icons.sync, size: 18),
+              variant: GlassButtonVariant.primary,
+              onPressed: onAction,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // --- Segmented Tab Chip ---
@@ -367,7 +531,7 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                   borderRadius: AppDimensions.borderFull,
                 ),
                 child: Text(
-                  'NEW',
+                  'SQLITE',
                   style: AppTypography.labelSmall(color: AppColors.primaryContainer).copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -377,12 +541,12 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${scanner.untaggedCount} untagged audio & video files detected.',
+            '${scanner.untaggedCount} untagged files detected on storage.',
             style: AppTypography.labelLarge(color: AppColors.tertiary),
           ),
           const SizedBox(height: 4),
           Text(
-            'Let MyPlayer AI auto-detect album art, generate smart tags, and sort duplicates into organized folders.',
+            'Let Mind-Music AI analyze file tags, organize folders, and curate lossless mixes.',
             style: AppTypography.bodySmall(color: AppColors.onSurfaceSecondary),
           ),
           const SizedBox(height: 14),
@@ -396,8 +560,8 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                   height: 38,
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('✨ AI Curation complete! 42 files matched with ID3 metadata & artwork.'),
+                      SnackBar(
+                        content: Text('✨ Indexed ${scanner.allMedia.length} real files across ${scanner.folders.length} folders!'),
                         backgroundColor: AppColors.secondaryContainer,
                       ),
                     );
@@ -411,7 +575,13 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                   side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                   shape: RoundedRectangleBorder(borderRadius: AppDimensions.borderFull),
                 ),
-                onPressed: () => _showReviewOrganizationDialog(context, scanner),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✨ Reviewing current SQLite folder taxonomy...'),
+                    ),
+                  );
+                },
                 child: const Text('Review'),
               ),
             ],
@@ -421,11 +591,12 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
     );
   }
 
-  // --- Media List Tile ---
+  // --- Media List Tile with Favorite Toggle ---
   Widget _buildMediaListTile(
     BuildContext context,
     MediaItemModel item,
     PlaybackEngineService playback,
+    StorageScannerService scanner,
   ) {
     final isCurrent = playback.currentMedia?.id == item.id;
 
@@ -498,18 +669,32 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                           color: item.isHiRes ? AppColors.tertiary : AppColors.onSurfaceMuted,
                         ).copyWith(fontWeight: item.isHiRes ? FontWeight.w700 : FontWeight.w400),
                       ),
+                      const SizedBox(width: 6),
+                      Text('•', style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted)),
+                      const SizedBox(width: 6),
+                      Text(
+                        item.formattedSize,
+                        style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
 
-            // Duration & Play Trigger
-            Text(
-              item.formattedDuration,
-              style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+            // Favorite toggle button
+            IconButton(
+              icon: Icon(
+                item.isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: item.isFavorite ? Colors.redAccent : AppColors.onSurfaceMuted,
+                size: 20,
+              ),
+              onPressed: () {
+                scanner.toggleFavorite(item.id);
+              },
             ),
-            const SizedBox(width: 6),
+
+            // Play Trigger
             GlassIconButton(
               icon: (isCurrent && playback.isPlaying) ? Icons.pause : Icons.play_arrow,
               size: 34,
@@ -529,24 +714,145 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
     );
   }
 
-  // --- Folder Views for Folders Tab ---
-  List<Widget> _buildFolderViews(StorageScannerService scanner, PlaybackEngineService playback) {
+  // --- Folder Views for Folders Tab matching document requirements ---
+  List<Widget> _buildFolderViews(
+    StorageScannerService scanner,
+    PlaybackEngineService playback,
+  ) {
     return scanner.folders.entries.map((entry) {
       final folderName = entry.key;
-      final files = entry.value;
+      final allFiles = entry.value;
+      final audioFiles = allFiles.where((f) => !f.isVideo).toList();
+      final videoFiles = allFiles.where((f) => f.isVideo).toList();
+
+      final currentFilter = _folderFilters[folderName] ?? FolderMediaFilter.all;
+
+      final displayedFiles = switch (currentFilter) {
+        FolderMediaFilter.audioOnly => audioFiles,
+        FolderMediaFilter.videoOnly => videoFiles,
+        FolderMediaFilter.all => allFiles,
+      };
+
+      // Find matching folder model if available
+      final folderModel = scanner.folderModels.firstWhere(
+        (m) => m.name == folderName,
+        orElse: () => MediaFolderModel(
+          path: folderName,
+          name: folderName,
+          audioCount: audioFiles.length,
+          videoCount: videoFiles.length,
+          totalSizeBytes: allFiles.fold(0, (sum, f) => sum + f.sizeInBytes),
+          lastModified: DateTime.now(),
+        ),
+      );
 
       return Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 12),
         child: GlassContainer(
           elevation: GlassElevation.level1,
           padding: const EdgeInsets.all(AppDimensions.spaceMd),
           borderRadius: AppDimensions.borderMd,
           child: ExpansionTile(
             tilePadding: EdgeInsets.zero,
-            leading: const Icon(Icons.folder_special, color: AppColors.tertiary, size: 28),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.tertiary.withValues(alpha: 0.15),
+              ),
+              child: const Icon(Icons.folder, color: AppColors.tertiary, size: 24),
+            ),
             title: Text(folderName, style: AppTypography.titleMedium()),
-            subtitle: Text('${files.length} media files', style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted)),
-            children: files.map((file) => _buildMediaListTile(context, file, playback)).toList(),
+            subtitle: Text(
+              '${folderModel.audioCount} audio • ${folderModel.videoCount} video • ${folderModel.formattedSize}',
+              style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+            ),
+            children: [
+              const SizedBox(height: 8),
+              // Document explicit action buttons:
+              // "Joue uniquement les musiques de ce dossier"
+              // "Montre-moi toutes les vidéos de ce dossier"
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    if (audioFiles.isNotEmpty)
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryContainer.withValues(alpha: 0.25),
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: AppColors.primaryContainer, width: 0.8),
+                          shape: RoundedRectangleBorder(borderRadius: AppDimensions.borderFull),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        ),
+                        icon: const Icon(Icons.play_arrow, size: 16),
+                        label: const Text('Joue les musiques'),
+                        onPressed: () {
+                          playback.setQueue(audioFiles, startIndex: 0);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Playing ${audioFiles.length} audio tracks in "$folderName"'),
+                              backgroundColor: AppColors.primaryContainer,
+                            ),
+                          );
+                        },
+                      ),
+                    const SizedBox(width: 8),
+                    if (videoFiles.isNotEmpty)
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.secondaryHighlight,
+                          side: BorderSide(
+                            color: currentFilter == FolderMediaFilter.videoOnly
+                                ? AppColors.secondaryHighlight
+                                : Colors.white.withValues(alpha: 0.2),
+                          ),
+                          shape: RoundedRectangleBorder(borderRadius: AppDimensions.borderFull),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        ),
+                        icon: const Icon(Icons.movie, size: 16),
+                        label: Text('Vidéos (${videoFiles.length})'),
+                        onPressed: () {
+                          setState(() {
+                            _folderFilters[folderName] =
+                                currentFilter == FolderMediaFilter.videoOnly
+                                    ? FolderMediaFilter.all
+                                    : FolderMediaFilter.videoOnly;
+                          });
+                        },
+                      ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.onSurface,
+                        side: BorderSide(
+                          color: currentFilter == FolderMediaFilter.audioOnly
+                              ? AppColors.primary
+                              : Colors.white.withValues(alpha: 0.2),
+                        ),
+                        shape: RoundedRectangleBorder(borderRadius: AppDimensions.borderFull),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      ),
+                      icon: const Icon(Icons.audiotrack, size: 16),
+                      label: Text('Musiques (${audioFiles.length})'),
+                      onPressed: () {
+                        setState(() {
+                          _folderFilters[folderName] =
+                              currentFilter == FolderMediaFilter.audioOnly
+                                  ? FolderMediaFilter.all
+                                  : FolderMediaFilter.audioOnly;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              ...displayedFiles.map(
+                (file) => _buildMediaListTile(context, file, playback, scanner),
+              ),
+            ],
           ),
         ),
       );
@@ -633,81 +939,6 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  // --- Review Proposed Organization Dialog ---
-  void _showReviewOrganizationDialog(BuildContext context, StorageScannerService scanner) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerHigh,
-        shape: RoundedRectangleBorder(borderRadius: AppDimensions.borderLg),
-        title: Row(
-          children: [
-            const Icon(Icons.auto_awesome, color: AppColors.secondaryHighlight),
-            const SizedBox(width: 8),
-            Text('Proposed AI Curation', style: AppTypography.headlineSmall()),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'AI analyzed file metadata and proposed this clean folder taxonomy:',
-              style: AppTypography.bodySmall(color: AppColors.onSurfaceSecondary),
-            ),
-            const SizedBox(height: 12),
-            _buildReviewRow('Afrobeats', '184 files'),
-            _buildReviewRow('Chill & Ambient', '92 files'),
-            _buildReviewRow('Workout High-Energy', '57 files'),
-            _buildReviewRow('Instrumental / Acoustic', '31 files'),
-            _buildReviewRow('Video Captures', '184 files'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryContainer,
-              foregroundColor: AppColors.onPrimaryContainer,
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('🎉 Library organized successfully!'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            child: const Text('Apply Changes'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReviewRow(String folder, String count) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.folder, size: 16, color: AppColors.tertiary),
-              const SizedBox(width: 8),
-              Text(folder, style: AppTypography.bodyMedium(color: AppColors.onSurface)),
-            ],
-          ),
-          Text(count, style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted)),
-        ],
       ),
     );
   }

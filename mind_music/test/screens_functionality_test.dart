@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mind_music/core/database/database_service.dart';
 import 'package:mind_music/core/models/media_item_model.dart';
 import 'package:mind_music/core/services/ads_service.dart';
 import 'package:mind_music/core/services/playback_engine_service.dart';
@@ -76,8 +77,8 @@ void main() {
       expect(find.text('Omah Lay'), findsWidgets);
       expect(find.text('Audio'), findsOneWidget);
       expect(find.text('Video'), findsOneWidget);
-      expect(find.byIcon(Icons.skip_previous), findsOneWidget);
-      expect(find.byIcon(Icons.skip_next), findsOneWidget);
+      expect(find.byIcon(Icons.skip_previous_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);
       expect(find.byIcon(Icons.shuffle), findsOneWidget);
       expect(find.text('Buffer 100% Local'), findsOneWidget);
     });
@@ -95,7 +96,7 @@ void main() {
       await tester.pumpWidget(createTestableWidget(const NowPlayingScreen(), playbackService: playback));
       await tester.pump();
 
-      final playPauseFinder = find.byType(ElevatedButton);
+      final playPauseFinder = find.byIcon(Icons.play_arrow_rounded);
       expect(playPauseFinder, findsOneWidget);
 
       await tester.tap(playPauseFinder);
@@ -139,7 +140,25 @@ void main() {
     });
 
     testWidgets('Search query filters media files instantly', (tester) async {
-      await tester.pumpWidget(createTestableWidget(const LocalLibraryScreen()));
+      final dbService = DatabaseService();
+      await dbService.upsertMediaItems([
+        MediaItemModel(
+          id: 'test-1',
+          title: 'Better Days',
+          artist: 'Omah Lay',
+          filePath: '/storage/emulated/0/Music/better_days.mp3',
+          format: 'FLAC',
+          dateModified: DateTime.now(),
+          folderName: 'Music',
+        ),
+      ]);
+      final scanner = StorageScannerService(dbService: dbService);
+      await scanner.init();
+
+      await tester.pumpWidget(createTestableWidget(
+        const LocalLibraryScreen(),
+        scannerService: scanner,
+      ));
       await tester.pump();
 
       await tester.enterText(find.byType(TextField), 'Omah');

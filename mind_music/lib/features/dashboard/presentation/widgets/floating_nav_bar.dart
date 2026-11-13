@@ -20,26 +20,27 @@ class FloatingNavBar extends StatelessWidget {
       left: AppDimensions.margin,
       right: AppDimensions.margin,
       bottom: 16.0,
-      child: Container(
-        height: 64.0,
-        decoration: BoxDecoration(
-          borderRadius: AppDimensions.borderFull,
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x66000000), // 40% shadow
-              blurRadius: 28,
-              offset: Offset(0, 10),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: AppDimensions.borderFull,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: AppDimensions.blurFloating,
-              sigmaY: AppDimensions.blurFloating,
-            ),
-            child: Container(
+      child: RepaintBoundary(
+        child: Container(
+          height: 64.0,
+          decoration: BoxDecoration(
+            borderRadius: AppDimensions.borderFull,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000), // 40% shadow
+                blurRadius: 28,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: AppDimensions.borderFull,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: 14.0,
+                sigmaY: 14.0,
+              ),
+              child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               decoration: BoxDecoration(
                 color: AppColors.glassDarkBase, // rgba(15, 23, 42, 0.65)
@@ -79,8 +80,9 @@ class FloatingNavBar extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildNavItem({
     required int index,

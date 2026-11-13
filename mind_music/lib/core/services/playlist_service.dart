@@ -1,15 +1,34 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import '../database/database_service.dart';
 import '../models/media_item_model.dart';
 import '../models/playlist_model.dart';
 
 class PlaylistService extends ChangeNotifier {
+  final DatabaseService _dbService;
   final List<PlaylistModel> _playlists = [];
   String _searchQuery = '';
   String _selectedFilter = 'all'; // 'all', 'user', 'ai', 'favorites'
 
-  PlaylistService() {
-    _initDefaultPlaylists();
+  PlaylistService({DatabaseService? dbService})
+      : _dbService = dbService ?? DatabaseService() {
+    init();
+  }
+
+  Future<void> init() async {
+    try {
+      final savedPlaylists = await _dbService.getAllPlaylists();
+      if (savedPlaylists.isNotEmpty) {
+        _playlists.clear();
+        _playlists.addAll(savedPlaylists);
+        notifyListeners();
+      } else {
+        _initDefaultPlaylists();
+      }
+    } catch (e) {
+      debugPrint('[PlaylistService] SQLite init error: $e');
+      _initDefaultPlaylists();
+    }
   }
 
   List<PlaylistModel> get allPlaylists => List.unmodifiable(_playlists);
@@ -58,7 +77,9 @@ class PlaylistService extends ChangeNotifier {
     final index = _playlists.indexWhere((p) => p.id == playlistId);
     if (index != -1) {
       final current = _playlists[index];
-      _playlists[index] = current.copyWith(isFavorite: !current.isFavorite);
+      final updated = current.copyWith(isFavorite: !current.isFavorite);
+      _playlists[index] = updated;
+      _dbService.upsertPlaylist(updated);
       notifyListeners();
     }
   }
@@ -84,6 +105,7 @@ class PlaylistService extends ChangeNotifier {
       coverGradientIndex: gradientIndex,
     );
     _playlists.insert(0, newPlaylist);
+    _dbService.upsertPlaylist(newPlaylist);
     notifyListeners();
     return newPlaylist;
   }
@@ -92,12 +114,14 @@ class PlaylistService extends ChangeNotifier {
     final index = _playlists.indexWhere((p) => p.id == updated.id);
     if (index != -1) {
       _playlists[index] = updated;
+      _dbService.upsertPlaylist(updated);
       notifyListeners();
     }
   }
 
   void deletePlaylist(String playlistId) {
     _playlists.removeWhere((p) => p.id == playlistId);
+    _dbService.deletePlaylist(playlistId);
     notifyListeners();
   }
 
@@ -109,6 +133,7 @@ class PlaylistService extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     _playlists.insert(0, copy);
+    _dbService.upsertPlaylist(copy);
     notifyListeners();
     return copy;
   }
@@ -119,7 +144,9 @@ class PlaylistService extends ChangeNotifier {
       final pl = _playlists[index];
       if (!pl.tracks.any((t) => t.id == track.id)) {
         final newTracks = List<MediaItemModel>.from(pl.tracks)..add(track);
-        _playlists[index] = pl.copyWith(tracks: newTracks);
+        final updated = pl.copyWith(tracks: newTracks);
+        _playlists[index] = updated;
+        _dbService.upsertPlaylist(updated);
         notifyListeners();
       }
     }
@@ -130,7 +157,9 @@ class PlaylistService extends ChangeNotifier {
     if (index != -1) {
       final pl = _playlists[index];
       final newTracks = pl.tracks.where((t) => t.id != mediaId).toList();
-      _playlists[index] = pl.copyWith(tracks: newTracks);
+      final updated = pl.copyWith(tracks: newTracks);
+      _playlists[index] = updated;
+      _dbService.upsertPlaylist(updated);
       notifyListeners();
     }
   }

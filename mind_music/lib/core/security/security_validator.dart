@@ -66,6 +66,11 @@ class SecurityValidator {
       // Normalize slashes across platforms
       final normalized = p.normalize(filePath).replaceAll('\\', '/').toLowerCase();
 
+      // Skip Android private restricted directories
+      if (normalized.contains('/android/data') || normalized.contains('/android/obb')) {
+        return false;
+      }
+
       final ext = p.extension(normalized);
 
       // Must have an allowed media extension
@@ -93,6 +98,11 @@ class SecurityValidator {
   static bool isSafeScanDirectory(Directory dir) {
     try {
       final normalized = p.normalize(dir.path).replaceAll('\\', '/').toLowerCase();
+
+      // Skip Android private restricted directories
+      if (normalized.contains('/android/data') || normalized.contains('/android/obb')) {
+        return false;
+      }
 
       // Check against forbidden directories
       for (final blocked in prohibitedSystemPrefixes) {

@@ -68,11 +68,12 @@ class _GlassTextFieldState extends State<GlassTextField> {
               ]
             : null,
       ),
-      child: ClipRRect(
-        borderRadius: AppDimensions.borderFull,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
+      child: RepaintBoundary(
+        child: ClipRRect(
+          borderRadius: AppDimensions.borderFull,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
             decoration: BoxDecoration(
               color: _isFocused
@@ -131,6 +132,7 @@ class _GlassTextFieldState extends State<GlassTextField> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

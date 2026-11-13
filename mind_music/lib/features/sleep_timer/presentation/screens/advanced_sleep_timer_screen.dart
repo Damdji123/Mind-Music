@@ -435,30 +435,42 @@ class _AdvancedSleepTimerScreenState extends State<AdvancedSleepTimerScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryContainer.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.volume_down, color: AppColors.primaryContainer),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Fondu sonore progressif', style: AppTypography.titleMedium()),
-                      Text(
-                        'Atténuation douce sans réveil brutal',
-                        style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryContainer.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ],
-                  ),
-                ],
+                      child: const Icon(Icons.volume_down, color: AppColors.primaryContainer),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Fondu sonore progressif',
+                            style: AppTypography.titleMedium(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Atténuation douce sans réveil brutal',
+                            style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Switch(
                 value: _fadeOut,
                 activeThumbColor: AppColors.primaryContainer,

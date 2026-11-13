@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'core/database/database_service.dart';
 import 'core/services/ads_service.dart';
 import 'core/services/equalizer_service.dart';
 import 'core/services/playback_engine_service.dart';
@@ -28,15 +29,24 @@ void main() async {
   final preferencesService = PreferencesService();
   await preferencesService.init();
 
-  runApp(MindMusicApp(preferencesService: preferencesService));
+  final databaseService = DatabaseService();
+  // Ensure SQLite schema is prepared
+  await databaseService.database;
+
+  runApp(MindMusicApp(
+    preferencesService: preferencesService,
+    databaseService: databaseService,
+  ));
 }
 
 class MindMusicApp extends StatelessWidget {
   final PreferencesService preferencesService;
+  final DatabaseService databaseService;
 
   const MindMusicApp({
     super.key,
     required this.preferencesService,
+    required this.databaseService,
   });
 
   @override
@@ -44,10 +54,15 @@ class MindMusicApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: preferencesService),
+        ChangeNotifierProvider.value(value: databaseService),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => SubscriptionService()),
-        ChangeNotifierProvider(create: (_) => StorageScannerService()),
-        ChangeNotifierProvider(create: (_) => PlaylistService()),
+        ChangeNotifierProvider(
+          create: (_) => StorageScannerService(dbService: databaseService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PlaylistService(dbService: databaseService),
+        ),
         ChangeNotifierProvider(create: (_) => EqualizerService()),
         ChangeNotifierProxyProvider<SubscriptionService, AdsService>(
           create: (ctx) => AdsService(ctx.read<SubscriptionService>()),
@@ -55,9 +70,13 @@ class MindMusicApp extends StatelessWidget {
               adsService ?? AdsService(subService),
         ),
         ChangeNotifierProxyProvider<AdsService, PlaybackEngineService>(
-          create: (ctx) => PlaybackEngineService(ctx.read<AdsService>()),
+          create: (ctx) => PlaybackEngineService(
+            ctx.read<AdsService>(),
+            dbService: databaseService,
+          ),
           update: (_, adsService, playbackService) =>
-              playbackService ?? PlaybackEngineService(adsService),
+              playbackService ??
+              PlaybackEngineService(adsService, dbService: databaseService),
         ),
       ],
       child: Consumer<ThemeProvider>(

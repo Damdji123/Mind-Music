@@ -85,11 +85,15 @@ class MediaStatsRow extends StatelessWidget {
           Text(
             title,
             style: AppTypography.titleMedium(color: AppColors.onSurface),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(
             subtitle,
             style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

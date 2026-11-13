@@ -5,7 +5,6 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_typography.dart';
 import '../services/ads_service.dart';
-import 'premium_badge.dart';
 
 /// Native Ad Card formatted strictly according to the ASCII layout in Music player.docx:
 ///
@@ -87,20 +86,17 @@ class NativeAdCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (ctx) => const PremiumBadge(),
-                        );
-                      },
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       child: Text(
-                        'Remove Ads (PRO)',
+                        'Sponsored',
                         style: AppTypography.labelSmall(
-                          color: AppColors.tertiary,
-                          fontWeight: FontWeight.w600,
+                          color: AppColors.onSurfaceMuted,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -134,7 +130,7 @@ class NativeAdCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            'Support Mind-Music free tier or upgrade to unlock unlimited AI and Studio DSP.',
+                            'Enjoy high-fidelity offline audio & local video playback with Mind-Music.',
                             style: AppTypography.bodySmall(color: AppColors.onSurfaceSecondary),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,

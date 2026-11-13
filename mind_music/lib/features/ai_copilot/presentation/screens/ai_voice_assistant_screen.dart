@@ -62,7 +62,7 @@ class _AiVoiceAssistantScreenState extends State<AiVoiceAssistantScreen>
     if (!subService.canQueryAi) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ Daily free AI query quota reached. Upgrade to PRO or watch an ad!'),
+          content: Text('⚠️ Daily free AI query quota reached. Please try again tomorrow.'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -183,7 +183,7 @@ class _AiVoiceAssistantScreenState extends State<AiVoiceAssistantScreen>
                           const Icon(Icons.tune, size: 13, color: AppColors.secondaryHighlight),
                           const SizedBox(width: 4),
                           Text(
-                            'v2.4 Nano',
+                            'Offline v1.0',
                             style: AppTypography.labelSmall(color: AppColors.secondaryHighlight),
                           ),
                         ],

@@ -2,29 +2,61 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
+
+import '../database/database_service.dart';
+import '../models/media_folder_model.dart';
 import '../models/media_item_model.dart';
 import '../security/security_validator.dart';
 
 class StorageScannerService with ChangeNotifier {
+  final DatabaseService _dbService;
+
   bool _isScanning = false;
   double _scanProgress = 0.0;
   List<MediaItemModel> _audioFiles = [];
   List<MediaItemModel> _videoFiles = [];
+  List<MediaFolderModel> _folderModels = [];
   Map<String, List<MediaItemModel>> _folders = {};
   int _untaggedCount = 0;
+  bool _hasLoadedFromDb = false;
 
   bool get isScanning => _isScanning;
   double get scanProgress => _scanProgress;
   List<MediaItemModel> get audioFiles => _audioFiles;
   List<MediaItemModel> get videoFiles => _videoFiles;
   List<MediaItemModel> get allMedia => [..._audioFiles, ..._videoFiles];
+  List<MediaItemModel> get favoriteFiles =>
+      allMedia.where((m) => m.isFavorite).toList();
+  List<MediaFolderModel> get folderModels => _folderModels;
   Map<String, List<MediaItemModel>> get folders => _folders;
   int get untaggedCount => _untaggedCount;
+  bool get hasLoadedFromDb => _hasLoadedFromDb;
 
-  StorageScannerService() {
-    _loadInitialMockLibrary();
+  StorageScannerService({DatabaseService? dbService})
+      : _dbService = dbService ?? DatabaseService() {
+    init();
   }
 
+  /// Initialize and load cached real media from the SQLite database
+  Future<void> init() async {
+    try {
+      final audios = await _dbService.getAudioItems();
+      final videos = await _dbService.getVideoItems();
+      final folders = await _dbService.getAllFolders();
+
+      _audioFiles = audios;
+      _videoFiles = videos;
+      _folderModels = folders;
+      _rebuildFolderMap();
+      _recomputeUntagged();
+      _hasLoadedFromDb = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[StorageScanner] SQLite initial load error: $e');
+    }
+  }
+
+  /// Requests real device storage permissions across modern Android & legacy versions
   Future<bool> requestPermissions() async {
     if (kIsWeb) return true;
 
@@ -33,12 +65,17 @@ class StorageScannerService with ChangeNotifier {
       final videoStatus = await Permission.videos.request();
       final storageStatus = await Permission.storage.request();
 
-      return audioStatus.isGranted || videoStatus.isGranted || storageStatus.isGranted;
+      return audioStatus.isGranted ||
+          videoStatus.isGranted ||
+          storageStatus.isGranted;
     }
     return true;
   }
 
-  Future<void> scanDeviceStorage() async {
+  /// Scans real device storage for real audio and video files and updates SQLite
+  Future<void> scanDeviceStorage({bool force = false}) async {
+    if (_isScanning) return;
+
     _isScanning = true;
     _scanProgress = 0.0;
     notifyListeners();
@@ -46,7 +83,7 @@ class StorageScannerService with ChangeNotifier {
     try {
       final hasPermission = await requestPermissions();
       if (!hasPermission && !Platform.isWindows) {
-        debugPrint('[StorageScanner] Storage permissions not granted.');
+        debugPrint('[StorageScanner] Device storage permissions not granted.');
         _isScanning = false;
         notifyListeners();
         return;
@@ -55,34 +92,42 @@ class StorageScannerService with ChangeNotifier {
       final List<Directory> scanTargets = _getSystemScanDirectories();
       final List<MediaItemModel> foundAudios = [];
       final List<MediaItemModel> foundVideos = [];
-      final Map<String, List<MediaItemModel>> folderMap = {};
+      final Map<String, _FolderCollector> folderCollectors = {};
       int untagged = 0;
 
       for (int i = 0; i < scanTargets.length; i++) {
         final dir = scanTargets[i];
 
-        // Security check: Verify directory is safe to scan
         if (await dir.exists() && SecurityValidator.isSafeScanDirectory(dir)) {
           try {
-            await for (final entity in dir.list(recursive: true, followLinks: false)) {
+            await for (final entity in dir.list(
+              recursive: true,
+              followLinks: false,
+            )) {
               if (entity is File) {
-                // Security check: Validate path against traversal and extension whitelist
                 if (!SecurityValidator.isSafeMediaPath(entity.path)) {
                   continue;
                 }
 
                 final ext = p.extension(entity.path).toLowerCase();
-                final isAudio = SecurityValidator.allowedAudioExtensions.contains(ext);
-                final isVideo = SecurityValidator.allowedVideoExtensions.contains(ext);
+                final isAudio =
+                    SecurityValidator.allowedAudioExtensions.contains(ext);
+                final isVideo =
+                    SecurityValidator.allowedVideoExtensions.contains(ext);
 
                 if (isAudio || isVideo) {
                   final stat = await entity.stat();
-                  // Skip zero byte or corrupted files
                   if (stat.size <= 0) continue;
 
-                  final item = _parseMediaFromFile(entity, stat, isVideo: isVideo, ext: ext);
+                  final item = _parseMediaFromFile(
+                    entity,
+                    stat,
+                    isVideo: isVideo,
+                    ext: ext,
+                  );
 
-                  if (item.artist == 'Unknown Artist' || item.album == 'Unknown Album') {
+                  if (item.artist == 'Unknown Artist' ||
+                      item.album == 'Unknown Album') {
                     untagged++;
                   }
 
@@ -92,30 +137,101 @@ class StorageScannerService with ChangeNotifier {
                     foundAudios.add(item);
                   }
 
-                  folderMap.putIfAbsent(item.folderName, () => []).add(item);
+                  final folderPath = p.dirname(entity.path);
+                  final folderName = p.basename(folderPath);
+                  final collector = folderCollectors.putIfAbsent(
+                    folderPath,
+                    () => _FolderCollector(
+                      path: folderPath,
+                      name: folderName,
+                    ),
+                  );
+
+                  if (isVideo) {
+                    collector.videoCount++;
+                  } else {
+                    collector.audioCount++;
+                  }
+                  collector.totalSizeBytes += stat.size;
+                  if (stat.modified.isAfter(collector.lastModified)) {
+                    collector.lastModified = stat.modified;
+                  }
                 }
               }
             }
           } catch (e) {
-            debugPrint('[StorageScanner] Error scanning directory ${dir.path}: $e');
+            debugPrint('[StorageScanner] Directory scan skipped ${dir.path}: $e');
           }
         }
         _scanProgress = (i + 1) / scanTargets.length;
         notifyListeners();
       }
 
+      final List<MediaFolderModel> discoveredFolders = folderCollectors.values
+          .map((c) => MediaFolderModel(
+                path: c.path,
+                name: c.name,
+                audioCount: c.audioCount,
+                videoCount: c.videoCount,
+                totalSizeBytes: c.totalSizeBytes,
+                lastModified: c.lastModified,
+              ))
+          .toList();
+
+      // Persist real items and folders into SQLite database
       if (foundAudios.isNotEmpty || foundVideos.isNotEmpty) {
-        _audioFiles = foundAudios;
-        _videoFiles = foundVideos;
-        _folders = folderMap;
-        _untaggedCount = untagged;
+        await _dbService.upsertMediaItems([...foundAudios, ...foundVideos]);
+        await _dbService.upsertFolders(discoveredFolders);
       }
+
+      // Re-read fresh state from SQLite database
+      _audioFiles = await _dbService.getAudioItems();
+      _videoFiles = await _dbService.getVideoItems();
+      _folderModels = await _dbService.getAllFolders();
+      _rebuildFolderMap();
+      _untaggedCount = untagged;
     } catch (e) {
       debugPrint('[StorageScanner] Scan exception: $e');
     } finally {
       _isScanning = false;
+      _scanProgress = 1.0;
       notifyListeners();
     }
+  }
+
+  /// Toggles favorite status in SQLite and updates in-memory list
+  Future<void> toggleFavorite(String mediaId) async {
+    await _dbService.toggleFavorite(mediaId);
+
+    _audioFiles = _audioFiles.map((m) {
+      return m.id == mediaId ? m.copyWith(isFavorite: !m.isFavorite) : m;
+    }).toList();
+
+    _videoFiles = _videoFiles.map((m) {
+      return m.id == mediaId ? m.copyWith(isFavorite: !m.isFavorite) : m;
+    }).toList();
+
+    _rebuildFolderMap();
+    notifyListeners();
+  }
+
+  /// Rebuilds the map of folderName -> `List<MediaItemModel>`
+  void _rebuildFolderMap() {
+    final Map<String, List<MediaItemModel>> map = {};
+    for (final item in allMedia) {
+      map.putIfAbsent(item.folderName, () => []).add(item);
+    }
+    _folders = map;
+  }
+
+  void _recomputeUntagged() {
+    int untagged = 0;
+    for (final item in allMedia) {
+      if (item.artist == 'Unknown Artist' || item.album == 'Unknown Album') {
+        untagged++;
+      }
+    }
+    _untaggedCount = untagged;
   }
 
   MediaItemModel _parseMediaFromFile(
@@ -138,10 +254,13 @@ class StorageScannerService with ChangeNotifier {
     }
 
     final format = ext.replaceAll('.', '').toUpperCase();
-    final isHiRes = format == 'FLAC' || format == 'WAV' || format == 'ALAC';
+    final isHiRes = format == 'FLAC' ||
+        format == 'WAV' ||
+        format == 'ALAC' ||
+        format == 'DSD';
 
     return MediaItemModel(
-      id: file.path.hashCode.toString(),
+      id: file.path.hashCode.abs().toString(),
       title: title,
       artist: artist,
       album: folderName,
@@ -156,16 +275,54 @@ class StorageScannerService with ChangeNotifier {
   }
 
   List<Directory> _getSystemScanDirectories() {
-    List<Directory> dirs = [];
+    final List<Directory> dirs = [];
 
     if (Platform.isAndroid) {
+      // Standard Android public media directories
       dirs.addAll([
         Directory('/storage/emulated/0/Music'),
         Directory('/storage/emulated/0/Download'),
         Directory('/storage/emulated/0/Movies'),
         Directory('/storage/emulated/0/DCIM'),
         Directory('/storage/emulated/0/Audiobooks'),
+        Directory('/storage/emulated/0/Podcasts'),
+        Directory('/storage/emulated/0/Recordings'),
+        Directory('/storage/emulated/0/Documents'),
       ]);
+
+      // Scan top-level folders in /storage/emulated/0 to discover custom music/video directories
+      final emulatedRoot = Directory('/storage/emulated/0');
+      if (emulatedRoot.existsSync()) {
+        try {
+          for (final entity in emulatedRoot.listSync(followLinks: false)) {
+            if (entity is Directory) {
+              final base = p.basename(entity.path);
+              if (!base.startsWith('.') &&
+                  base.toLowerCase() != 'android' &&
+                  !dirs.any((d) => d.path == entity.path)) {
+                dirs.add(entity);
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Check for removable external SD cards mounted under /storage
+      final storageRoot = Directory('/storage');
+      if (storageRoot.existsSync()) {
+        try {
+          for (final entity in storageRoot.listSync(followLinks: false)) {
+            if (entity is Directory) {
+              final base = p.basename(entity.path);
+              if (base != 'emulated' && base != 'self' && !base.startsWith('.')) {
+                dirs.add(Directory(p.join(entity.path, 'Music')));
+                dirs.add(Directory(p.join(entity.path, 'Download')));
+                dirs.add(Directory(p.join(entity.path, 'Movies')));
+              }
+            }
+          }
+        } catch (_) {}
+      }
     } else if (Platform.isWindows) {
       final userProfile = Platform.environment['USERPROFILE'];
       if (userProfile != null) {
@@ -173,107 +330,21 @@ class StorageScannerService with ChangeNotifier {
           Directory('$userProfile\\Music'),
           Directory('$userProfile\\Videos'),
           Directory('$userProfile\\Downloads'),
+          Directory('$userProfile\\Desktop'),
         ]);
       }
     }
     return dirs;
   }
+}
 
-  void _loadInitialMockLibrary() {
-    _audioFiles = [
-      MediaItemModel(
-        id: 'mock-1',
-        title: 'Better Days',
-        artist: 'Omah Lay',
-        album: 'Afrobeats Mix 2026',
-        duration: const Duration(minutes: 3, seconds: 56),
-        filePath: 'assets/audio/better_days.mp3',
-        format: 'FLAC',
-        isHiRes: true,
-        sizeInBytes: 34 * 1024 * 1024,
-        dateModified: DateTime.now().subtract(const Duration(days: 1)),
-        folderName: 'Afrobeats',
-      ),
-      MediaItemModel(
-        id: 'mock-2',
-        title: 'Midnight Reverie (Ambient Focus)',
-        artist: 'Celestial Echoes',
-        album: 'Chill & Sleep Sessions',
-        duration: const Duration(minutes: 5, seconds: 12),
-        filePath: 'assets/audio/midnight_reverie.mp3',
-        format: 'FLAC',
-        isHiRes: true,
-        sizeInBytes: 42 * 1024 * 1024,
-        dateModified: DateTime.now().subtract(const Duration(days: 2)),
-        folderName: 'Relaxation',
-      ),
-      MediaItemModel(
-        id: 'mock-3',
-        title: 'Neon Horizon',
-        artist: 'CyberPulse',
-        album: 'Synthwave Night Drive',
-        duration: const Duration(minutes: 4, seconds: 20),
-        filePath: 'assets/audio/neon_horizon.mp3',
-        format: 'MP3',
-        isHiRes: false,
-        sizeInBytes: 10 * 1024 * 1024,
-        dateModified: DateTime.now().subtract(const Duration(days: 3)),
-        folderName: 'Workout',
-      ),
-      MediaItemModel(
-        id: 'mock-4',
-        title: 'Golden Hour Acoustic',
-        artist: 'Aura Bloom',
-        album: 'Coffee & Code',
-        duration: const Duration(minutes: 3, seconds: 45),
-        filePath: 'assets/audio/golden_hour.mp3',
-        format: 'WAV',
-        isHiRes: true,
-        sizeInBytes: 38 * 1024 * 1024,
-        dateModified: DateTime.now().subtract(const Duration(days: 5)),
-        folderName: 'Acoustic',
-      ),
-    ];
+class _FolderCollector {
+  final String path;
+  final String name;
+  int audioCount = 0;
+  int videoCount = 0;
+  int totalSizeBytes = 0;
+  DateTime lastModified = DateTime.fromMillisecondsSinceEpoch(0);
 
-    _videoFiles = [
-      MediaItemModel(
-        id: 'mock-v1',
-        title: 'Alpine Sunrise 4K',
-        artist: 'Nature Vibes',
-        album: 'Travel & Scenery',
-        duration: const Duration(minutes: 8, seconds: 40),
-        filePath: 'assets/video/alpine_sunrise.mp4',
-        format: 'MP4',
-        isVideo: true,
-        isHiRes: true,
-        sizeInBytes: 280 * 1024 * 1024,
-        dateModified: DateTime.now().subtract(const Duration(days: 4)),
-        folderName: 'Videos',
-      ),
-      MediaItemModel(
-        id: 'mock-v2',
-        title: 'Better Days (Official 4K Music Video)',
-        artist: 'Omah Lay',
-        album: 'Music Videos',
-        duration: const Duration(minutes: 4, seconds: 10),
-        filePath: 'assets/video/better_days_clip.mp4',
-        format: 'MP4',
-        isVideo: true,
-        isHiRes: true,
-        sizeInBytes: 160 * 1024 * 1024,
-        dateModified: DateTime.now().subtract(const Duration(days: 1)),
-        folderName: 'Videos',
-      ),
-    ];
-
-    _folders = {
-      'Afrobeats': [_audioFiles[0]],
-      'Relaxation': [_audioFiles[1]],
-      'Workout': [_audioFiles[2]],
-      'Acoustic': [_audioFiles[3]],
-      'Videos': _videoFiles,
-    };
-
-    _untaggedCount = 42;
-  }
+  _FolderCollector({required this.path, required this.name});
 }

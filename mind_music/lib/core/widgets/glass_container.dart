@@ -50,23 +50,25 @@ class GlassContainer extends StatelessWidget {
     final radius = borderRadius ?? AppDimensions.borderLg;
 
     final blurAmount = switch (elevation) {
-      GlassElevation.level1 => AppDimensions.blurAmbient,
-      GlassElevation.level2 => AppDimensions.blurFloating,
-      GlassElevation.level3 => AppDimensions.blurIntense,
+      GlassElevation.level1 => 10.0,
+      GlassElevation.level2 => 14.0,
+      GlassElevation.level3 => 18.0,
     };
 
     final decoration = _buildDecoration();
 
-    Widget content = ClipRRect(
-      borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurAmount, sigmaY: blurAmount),
-        child: Container(
-          width: width,
-          height: height,
-          padding: padding,
-          decoration: decoration,
-          child: child,
+    Widget content = RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blurAmount, sigmaY: blurAmount),
+          child: Container(
+            width: width,
+            height: height,
+            padding: padding,
+            decoration: decoration,
+            child: child,
+          ),
         ),
       ),
     );
