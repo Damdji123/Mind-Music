@@ -336,6 +336,68 @@ class StorageScannerService with ChangeNotifier {
     }
     return dirs;
   }
+
+  /// Deletes a file physically from local storage and removes it from SQLite and memory
+  Future<bool> deleteMediaFile(MediaItemModel media) async {
+    try {
+      // 1. Delete physical file from disk
+      if (!media.filePath.startsWith('assets/')) {
+        final file = File(media.filePath);
+        if (await file.exists()) {
+          await file.delete();
+          debugPrint('[StorageScanner] Deleted physical file: ${media.filePath}');
+        }
+      }
+
+      // 2. Remove from SQLite catalog
+      await _dbService.deleteMediaItem(media.id);
+
+      // 3. Remove from in-memory cache
+      _audioFiles.removeWhere((item) => item.id == media.id);
+      _videoFiles.removeWhere((item) => item.id == media.id);
+      _rebuildFolderMap();
+      _recomputeUntagged();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('[StorageScanner] Error deleting file: $e');
+      return false;
+    }
+  }
+
+  /// Updates media item metadata (title, artist, album) in SQLite and local in-memory state
+  Future<void> updateMetadata(
+    String mediaId, {
+    required String title,
+    required String artist,
+    String? album,
+  }) async {
+    await _dbService.updateMediaMetadata(
+      mediaId,
+      title: title,
+      artist: artist,
+      album: album,
+    );
+
+    final aIdx = _audioFiles.indexWhere((m) => m.id == mediaId);
+    if (aIdx != -1) {
+      _audioFiles[aIdx] = _audioFiles[aIdx].copyWith(
+        title: title.trim(),
+        artist: artist.trim(),
+        album: album?.trim(),
+      );
+    }
+    final vIdx = _videoFiles.indexWhere((m) => m.id == mediaId);
+    if (vIdx != -1) {
+      _videoFiles[vIdx] = _videoFiles[vIdx].copyWith(
+        title: title.trim(),
+        artist: artist.trim(),
+        album: album?.trim(),
+      );
+    }
+    _recomputeUntagged();
+    notifyListeners();
+  }
 }
 
 class _FolderCollector {

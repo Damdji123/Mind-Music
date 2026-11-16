@@ -16,6 +16,7 @@ import '../../../../core/widgets/liquid_glow.dart';
 import '../../../../core/widgets/native_ad_card.dart';
 import '../../../player/presentation/screens/now_playing_screen.dart';
 import 'create_ai_playlist_screen.dart';
+import 'playlist_detail_screen.dart';
 
 class PlaylistsScreen extends StatefulWidget {
   const PlaylistsScreen({super.key});
@@ -336,116 +337,126 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     PlaybackEngineService playback,
     PlaylistService playlistService,
   ) {
-    return GlassContainer(
-      padding: const EdgeInsets.all(AppDimensions.spaceMd),
-      customGradient: LinearGradient(
-        colors: [
-          AppColors.surfaceContainerHigh.withValues(alpha: 0.9),
-          AppColors.surfaceContainerLowest.withValues(alpha: 0.9),
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryContainer.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PlaylistDetailScreen(playlistId: playlist.id),
+          ),
+        );
+      },
+      child: GlassContainer(
+        padding: const EdgeInsets.all(AppDimensions.spaceMd),
+        customGradient: LinearGradient(
+          colors: [
+            AppColors.surfaceContainerHigh.withValues(alpha: 0.9),
+            AppColors.surfaceContainerLowest.withValues(alpha: 0.9),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryContainer.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: AppColors.secondaryHighlight, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        'GÉNÉRÉ CE MATIN',
+                        style: AppTypography.labelSmall(
+                          color: AppColors.secondaryHighlight,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
+                Row(
                   children: [
-                    const Icon(Icons.auto_awesome, color: AppColors.secondaryHighlight, size: 14),
+                    const Icon(Icons.schedule, size: 14, color: AppColors.primaryContainer),
                     const SizedBox(width: 4),
                     Text(
-                      'GÉNÉRÉ CE MATIN',
-                      style: AppTypography.labelSmall(
-                        color: AppColors.secondaryHighlight,
-                        fontWeight: FontWeight.bold,
+                      playlist.formattedDuration,
+                      style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: _coverGradients[playlist.coverGradientIndex % _coverGradients.length],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryContainer.withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.schedule, size: 14, color: AppColors.primaryContainer),
-                  const SizedBox(width: 4),
-                  Text(
-                    playlist.formattedDuration,
-                    style: AppTypography.labelSmall(color: AppColors.onSurfaceMuted),
+                    ],
                   ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: _coverGradients[playlist.coverGradientIndex % _coverGradients.length],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  child: const Icon(Icons.grain, color: Colors.white, size: 30),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        playlist.name,
+                        style: AppTypography.titleMedium(color: AppColors.onSurface),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        playlist.description,
+                        style: AppTypography.bodySmall(color: AppColors.onSurfaceMuted),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryContainer.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
-                child: const Icon(Icons.grain, color: Colors.white, size: 30),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      playlist.name,
-                      style: AppTypography.titleMedium(color: AppColors.onSurface),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      playlist.description,
-                      style: AppTypography.bodySmall(color: AppColors.onSurfaceMuted),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                IconButton.filled(
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.primaryContainer,
+                    foregroundColor: AppColors.onPrimary,
+                  ),
+                  icon: const Icon(Icons.play_arrow),
+                  onPressed: () {
+                    if (playlist.tracks.isNotEmpty) {
+                      playback.setQueue(playlist.tracks, startIndex: 0);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const NowPlayingScreen()),
+                      );
+                    }
+                  },
                 ),
-              ),
-              IconButton.filled(
-                style: IconButton.styleFrom(
-                  backgroundColor: AppColors.primaryContainer,
-                  foregroundColor: AppColors.onPrimary,
-                ),
-                icon: const Icon(Icons.play_arrow),
-                onPressed: () {
-                  if (playlist.tracks.isNotEmpty) {
-                    playback.setQueue(playlist.tracks, startIndex: 0);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const NowPlayingScreen()),
-                    );
-                  }
-                },
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -490,90 +501,103 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         final pl = playlists[i];
         final gradient = _coverGradients[pl.coverGradientIndex % _coverGradients.length];
 
-        return GlassContainer(
-          padding: const EdgeInsets.all(AppDimensions.spaceSm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cover
-              Stack(
+        return Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => PlaylistDetailScreen(playlistId: pl.id),
+                ),
+              );
+            },
+            child: GlassContainer(
+              padding: const EdgeInsets.all(AppDimensions.spaceSm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    height: 110,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: gradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        pl.isAiGenerated ? Icons.smart_toy : Icons.music_note,
-                        size: 38,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: InkWell(
-                      onTap: () => service.toggleFavorite(pl.id),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
+                  // Cover
+                  Stack(
+                    children: [
+                      Container(
+                        height: 110,
+                        width: double.infinity,
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: gradient,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(
-                          pl.isFavorite ? Icons.favorite : Icons.favorite_border,
-                          size: 16,
-                          color: pl.isFavorite ? AppColors.error : Colors.white,
+                        child: Center(
+                          child: Icon(
+                            pl.isAiGenerated ? Icons.smart_toy : Icons.music_note,
+                            size: 38,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  if (pl.bpmRange != null)
-                    Positioned(
-                      bottom: 6,
-                      left: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: InkWell(
+                          onTap: () => service.toggleFavorite(pl.id),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              pl.isFavorite ? Icons.favorite : Icons.favorite_border,
+                              size: 16,
+                              color: pl.isFavorite ? AppColors.error : Colors.white,
+                            ),
+                          ),
                         ),
+                      ),
+                      if (pl.bpmRange != null)
+                        Positioned(
+                          bottom: 6,
+                          left: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              pl.bpmRange!,
+                              style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
                         child: Text(
-                          pl.bpmRange!,
-                          style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                          pl.name,
+                          style: AppTypography.titleMedium(color: AppColors.onSurface),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      pl.name,
-                      style: AppTypography.titleMedium(color: AppColors.onSurface),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      _buildPlaylistContextMenu(context, pl, playback, service),
+                    ],
                   ),
-                  _buildPlaylistContextMenu(context, pl, playback, service),
+                  Text(
+                    '${pl.trackCount} titres • ${pl.formattedDuration}',
+                    style: AppTypography.bodySmall(color: AppColors.onSurfaceMuted),
+                  ),
                 ],
               ),
-              Text(
-                '${pl.trackCount} titres • ${pl.formattedDuration}',
-                style: AppTypography.bodySmall(color: AppColors.onSurfaceMuted),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -590,7 +614,13 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       icon: const Icon(Icons.more_vert, size: 18, color: AppColors.onSurfaceMuted),
       color: AppColors.surfaceContainerLowest,
       onSelected: (val) {
-        if (val == 'play') {
+        if (val == 'details') {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => PlaylistDetailScreen(playlistId: pl.id),
+            ),
+          );
+        } else if (val == 'play') {
           if (pl.tracks.isNotEmpty) {
             playback.setQueue(pl.tracks, startIndex: 0);
             Navigator.of(context).push(
@@ -610,6 +640,16 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         }
       },
       itemBuilder: (ctx) => [
+        const PopupMenuItem(
+          value: 'details',
+          child: Row(
+            children: [
+              Icon(Icons.queue_music, size: 18, color: AppColors.onSurface),
+              SizedBox(width: 8),
+              Text('Détails & Titres'),
+            ],
+          ),
+        ),
         const PopupMenuItem(
           value: 'play',
           child: Row(

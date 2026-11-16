@@ -175,6 +175,7 @@ class PlaylistService extends ChangeNotifier {
       final item = updatedList.removeAt(oldIndex);
       updatedList.insert(newIndex, item);
       _playlists[index] = pl.copyWith(tracks: updatedList);
+      _dbService.upsertPlaylist(_playlists[index]);
       notifyListeners();
     }
   }

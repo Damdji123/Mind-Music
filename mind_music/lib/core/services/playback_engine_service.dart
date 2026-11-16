@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
@@ -20,6 +21,11 @@ class PlaybackEngineService with ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   VideoPlayerController? _videoController;
 
+  AudioSession? _audioSession;
+  StreamSubscription? _becomingNoisySub;
+  StreamSubscription? _interruptionSub;
+  bool _playOnRemoveInterruption = false;
+
   PlaybackMode _mode = PlaybackMode.audio;
   MediaItemModel? _currentMedia;
   List<MediaItemModel> _queue = [];
@@ -29,6 +35,7 @@ class PlaybackEngineService with ChangeNotifier {
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   double _speed = 1.0;
+  double _volume = 1.0;
   bool _isShuffle = false;
   LoopMode _loopMode = LoopMode.off;
 
@@ -41,12 +48,16 @@ class PlaybackEngineService with ChangeNotifier {
   PlaybackEngineService(this._adsService, {DatabaseService? dbService})
       : _dbService = dbService ?? DatabaseService() {
     _initAudioStreams();
+    _initAudioSession();
   }
 
   PlaybackMode get mode => _mode;
   MediaItemModel? get currentMedia => _currentMedia;
   List<MediaItemModel> get queue => _queue;
   int get queueIndex => _queueIndex;
+  int get currentIndex => _queueIndex;
+  double get volume => _volume;
+  AudioSession? get audioSession => _audioSession;
   bool get isPlaying => _isPlaying;
   Duration get position => _position;
   Duration get duration => _duration;
@@ -173,6 +184,8 @@ class PlaybackEngineService with ChangeNotifier {
   }
 
   Future<void> pause() async {
+    _isPlaying = false;
+    _adsService.setPlaybackState(isPlaying: false);
     if (_mode == PlaybackMode.audio) {
       if (_currentMedia != null) {
         try {
@@ -184,8 +197,38 @@ class PlaybackEngineService with ChangeNotifier {
         await _videoController!.pause();
       } catch (_) {}
     }
-    _isPlaying = false;
-    _adsService.setPlaybackState(isPlaying: false);
+    notifyListeners();
+  }
+
+  Future<void> play() async {
+    _isPlaying = true;
+    _adsService.setPlaybackState(isPlaying: true);
+    notifyListeners();
+    if (_mode == PlaybackMode.audio) {
+      if (_currentMedia != null) {
+        try {
+          await _audioPlayer.play();
+        } catch (_) {}
+      }
+    } else if (_videoController != null) {
+      try {
+        await _videoController!.play();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> stop() async {
+    await pause();
+    await seek(Duration.zero);
+    _currentMedia = null;
+    notifyListeners();
+  }
+
+  Future<void> setVolume(double targetVolume) async {
+    _volume = targetVolume.clamp(0.0, 1.0);
+    try {
+      await _audioPlayer.setVolume(_volume);
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -358,8 +401,136 @@ class PlaybackEngineService with ChangeNotifier {
     }
   }
 
+  Future<void> _initAudioSession() async {
+    try {
+      final session = await AudioSession.instance;
+      _audioSession = session;
+      await session.configure(const AudioSessionConfiguration.music());
+
+      _becomingNoisySub = session.becomingNoisyEventStream.listen((_) => handleBecomingNoisy());
+      _interruptionSub = session.interruptionEventStream.listen(handleInterruption);
+    } catch (e) {
+      debugPrint('[PlaybackEngine] AudioSession init notice: $e');
+    }
+  }
+
+  void handleBecomingNoisy() {
+    debugPrint('[PlaybackEngine] Headset disconnected (Becoming Noisy) -> Auto-pausing');
+    pause();
+  }
+
+  void handleInterruption(AudioInterruptionEvent event) {
+    if (event.begin) {
+      switch (event.type) {
+        case AudioInterruptionType.duck:
+          setVolume(0.2);
+          break;
+        case AudioInterruptionType.pause:
+        case AudioInterruptionType.unknown:
+          _playOnRemoveInterruption = _isPlaying;
+          pause();
+          break;
+      }
+    } else {
+      switch (event.type) {
+        case AudioInterruptionType.duck:
+          setVolume(1.0);
+          break;
+        case AudioInterruptionType.pause:
+          if (_playOnRemoveInterruption) {
+            _playOnRemoveInterruption = false;
+            play();
+          }
+          break;
+        case AudioInterruptionType.unknown:
+          break;
+      }
+    }
+  }
+
+  // --- Queue Management Operations ---
+
+  /// Move an item from oldIndex to newIndex within the queue
+  void reorderQueue(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _queue.length || newIndex < 0 || newIndex > _queue.length) {
+      return;
+    }
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final item = _queue.removeAt(oldIndex);
+    _queue.insert(newIndex, item);
+
+    // Update _queueIndex to maintain active track reference
+    if (_currentMedia != null) {
+      final newCurrentIndex = _queue.indexWhere((m) => m.id == _currentMedia!.id);
+      if (newCurrentIndex != -1) {
+        _queueIndex = newCurrentIndex;
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Appends an item to the end of the queue
+  void addToQueue(MediaItemModel item) {
+    _queue.add(item);
+    notifyListeners();
+  }
+
+  /// Inserts an item to play next immediately after the current song
+  void playNext(MediaItemModel item) {
+    if (_queue.isEmpty) {
+      setQueue([item]);
+      return;
+    }
+    final insertIndex = (_queueIndex + 1).clamp(0, _queue.length);
+    _queue.insert(insertIndex, item);
+    notifyListeners();
+  }
+
+  /// Removes an item from the queue at a given index
+  void removeFromQueue(int index) {
+    if (index >= 0 && index < _queue.length) {
+      final wasCurrent = index == _queueIndex;
+      _queue.removeAt(index);
+      if (_queue.isEmpty) {
+        stop();
+      } else if (wasCurrent) {
+        _queueIndex = _queueIndex.clamp(0, _queue.length - 1);
+        playMedia(_queue[_queueIndex]);
+      } else if (index < _queueIndex) {
+        _queueIndex--;
+      }
+      notifyListeners();
+    }
+  }
+
+  /// Clears the queue. By default clears all items, or keeps current track if keepCurrent=true.
+  void clearQueue({bool keepCurrent = false}) {
+    if (keepCurrent && _currentMedia != null) {
+      _queue = [_currentMedia!];
+      _queueIndex = 0;
+    } else {
+      _queue.clear();
+      _queueIndex = 0;
+      _currentMedia = null;
+    }
+    notifyListeners();
+  }
+
+  /// Handles when a media item has been deleted from device storage
+  void onMediaDeleted(String mediaId) {
+    final deletedIndex = _queue.indexWhere((m) => m.id == mediaId);
+    if (deletedIndex != -1) {
+      removeFromQueue(deletedIndex);
+    }
+  }
+
   @override
   void dispose() {
+    _becomingNoisySub?.cancel();
+    _interruptionSub?.cancel();
+    _audioSession?.setActive(false);
     cancelSleepTimer();
     _audioPlayer.dispose();
     _disposeVideoController();

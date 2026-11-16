@@ -149,6 +149,23 @@ class DatabaseService with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<MediaItemModel?> getMediaItemById(String id) async {
+    final db = await database;
+    if (db != null) {
+      final maps = await db.query(
+        'media_items',
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (maps.isNotEmpty) {
+        return MediaItemModel.fromMap(maps.first);
+      }
+      return null;
+    }
+    return _mediaMap[id];
+  }
+
   Future<List<MediaItemModel>> getAllMedia() async {
     final db = await database;
     if (db != null) {
@@ -325,6 +342,79 @@ class DatabaseService with ChangeNotifier {
       ''', [DateTime.now().millisecondsSinceEpoch, mediaId]);
     }
     notifyListeners();
+  }
+
+  /// Permanently removes a media item from the SQLite catalog & cascades through playlist tracks
+  Future<void> deleteMediaItem(String mediaId) async {
+    _mediaMap.remove(mediaId);
+
+    // Also remove from in-memory playlists cache
+    for (final plId in _playlistMap.keys.toList()) {
+      final pl = _playlistMap[plId]!;
+      if (pl.tracks.any((t) => t.id == mediaId)) {
+        _playlistMap[plId] = pl.copyWith(
+          tracks: pl.tracks.where((t) => t.id != mediaId).toList(),
+        );
+      }
+    }
+
+    final db = await database;
+    if (db != null) {
+      try {
+        await db.delete('playlist_tracks', where: 'media_id = ?', whereArgs: [mediaId]);
+        await db.delete('media_items', where: 'id = ?', whereArgs: [mediaId]);
+      } catch (e) {
+        debugPrint('[DatabaseService] Error deleting media item: $e');
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Updates editable metadata (title, artist, album) in SQLite and local cache
+  Future<void> updateMediaMetadata(
+    String mediaId, {
+    required String title,
+    required String artist,
+    String? album,
+  }) async {
+    final existing = _mediaMap[mediaId];
+    if (existing != null) {
+      final updated = existing.copyWith(
+        title: title.trim(),
+        artist: artist.trim(),
+        album: album?.trim(),
+      );
+      _mediaMap[mediaId] = updated;
+
+      // Update in-memory playlists cache
+      for (final plId in _playlistMap.keys.toList()) {
+        final pl = _playlistMap[plId]!;
+        if (pl.tracks.any((t) => t.id == mediaId)) {
+          _playlistMap[plId] = pl.copyWith(
+            tracks: pl.tracks.map((t) => t.id == mediaId ? updated : t).toList(),
+          );
+        }
+      }
+
+      final db = await database;
+      if (db != null) {
+        try {
+          await db.update(
+            'media_items',
+            {
+              'title': updated.title,
+              'artist': updated.artist,
+              'album': updated.album,
+            },
+            where: 'id = ?',
+            whereArgs: [mediaId],
+          );
+        } catch (e) {
+          debugPrint('[DatabaseService] Error updating media metadata: $e');
+        }
+      }
+      notifyListeners();
+    }
   }
 
   // --- Folders CRUD ---

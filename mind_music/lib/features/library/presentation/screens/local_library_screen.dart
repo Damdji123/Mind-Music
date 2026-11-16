@@ -12,6 +12,7 @@ import '../../../../core/widgets/glass_container.dart';
 import '../../../../core/widgets/glass_icon_button.dart';
 import '../../../../core/widgets/glass_text_field.dart';
 import '../../../../core/widgets/liquid_glow.dart';
+import '../../../../core/utils/media_actions_helper.dart';
 import '../../../player/presentation/screens/now_playing_screen.dart';
 
 enum LibraryTab { all, music, videos, folders, favorites }
@@ -706,6 +707,18 @@ class _LocalLibraryScreenState extends State<LocalLibraryScreen> {
                 } else {
                   playback.playMedia(item);
                 }
+              },
+            ),
+            const SizedBox(width: 2),
+
+            // More Options (File Operations, Share, Playlist, Delete)
+            IconButton(
+              icon: const Icon(Icons.more_vert, size: 20, color: AppColors.onSurfaceMuted),
+              tooltip: 'Media Options',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              onPressed: () {
+                MediaActionsHelper.showMediaOptionsSheet(context, item);
               },
             ),
           ],

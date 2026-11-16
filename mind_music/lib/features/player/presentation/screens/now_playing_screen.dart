@@ -7,6 +7,7 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/models/media_item_model.dart';
 import '../../../../core/services/playback_engine_service.dart';
+import '../../../../core/utils/media_actions_helper.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../../core/widgets/glass_icon_button.dart';
 import '../../../../core/widgets/liquid_glow.dart';
@@ -1046,9 +1047,34 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                   ),
                 ],
               ),
-              Text(
-                'Auto-Queue Active',
-                style: AppTypography.labelSmall(color: AppColors.success),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _showReorderableQueueSheet(context, playback),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primaryContainer.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.reorder, size: 14, color: AppColors.primaryContainer),
+                      SizedBox(width: 4),
+                      Text(
+                        'Reorder & Manage',
+                        style: TextStyle(
+                          color: AppColors.primaryContainer,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -1124,6 +1150,192 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     );
   }
 
+  // --- Interactive Drag-and-Drop Up-Next Queue Sheet ---
+  void _showReorderableQueueSheet(
+      BuildContext context, PlaybackEngineService playback) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final queue = playback.queue;
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.72,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Up-Next Queue',
+                            style: AppTypography.headlineSmall(),
+                          ),
+                          Text(
+                            '${queue.length} tracks • Drag handle to reorder',
+                            style: AppTypography.labelSmall(
+                                color: AppColors.onSurfaceMuted),
+                          ),
+                        ],
+                      ),
+                      if (queue.length > 1)
+                        TextButton.icon(
+                          icon: const Icon(Icons.clear_all, size: 18),
+                          label: const Text('Clear'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.error,
+                          ),
+                          onPressed: () {
+                            playback.clearQueue();
+                            setSheetState(() {});
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(color: AppColors.glassBorderSubtle, height: 1),
+                  const SizedBox(height: 8),
+                  if (queue.isEmpty)
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          'Queue is empty. Select tracks from Library.',
+                          style: TextStyle(color: AppColors.onSurfaceMuted),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ReorderableListView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: queue.length,
+                        // ignore: deprecated_member_use
+                        onReorder: (oldIndex, newIndex) {
+                          playback.reorderQueue(oldIndex, newIndex);
+                          setSheetState(() {});
+                        },
+                        itemBuilder: (c, i) {
+                          final item = queue[i];
+                          final isCurrent = i == playback.queueIndex;
+
+                          return Container(
+                            key: ValueKey('${item.id}_$i'),
+                            margin: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: isCurrent
+                                  ? AppColors.primaryContainer
+                                      .withValues(alpha: 0.18)
+                                  : Colors.white.withValues(alpha: 0.05),
+                              border: Border.all(
+                                color: isCurrent
+                                    ? AppColors.primaryContainer
+                                    : Colors.white.withValues(alpha: 0.1),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isCurrent
+                                      ? Icons.play_arrow_rounded
+                                      : Icons.music_note_rounded,
+                                  color: isCurrent
+                                      ? AppColors.primaryContainer
+                                      : AppColors.onSurfaceMuted,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () {
+                                      playback.setQueue(playback.queue,
+                                          startIndex: i);
+                                      setSheetState(() {});
+                                    },
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.title,
+                                          style: AppTypography.titleMedium(
+                                            color: isCurrent
+                                                ? AppColors.primaryContainer
+                                                : AppColors.onSurface,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          '${item.artist} • ${item.formattedDuration}',
+                                          style: AppTypography.labelSmall(
+                                              color: AppColors.onSurfaceMuted),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  color: AppColors.onSurfaceMuted,
+                                  tooltip: 'Remove from Queue',
+                                  onPressed: () {
+                                    playback.removeFromQueue(i);
+                                    setSheetState(() {});
+                                  },
+                                ),
+                                ReorderableDragStartListener(
+                                  index: i,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 4.0),
+                                    child: Icon(
+                                      Icons.drag_handle_rounded,
+                                      color: AppColors.onSurfaceMuted,
+                                      size: 22,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // --- Modal Helpers ---
   void _showSleepTimerPicker(
       BuildContext context, PlaybackEngineService playback) {
@@ -1136,69 +1348,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   }
 
   void _showMediaOptions(BuildContext context, MediaItemModel? media) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surfaceContainerHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.equalizer),
-              title: const Text('Open 10-Band Equalizer'),
-              onTap: () {
-                Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const EqualizerScreen()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.speed),
-              title: const Text('Playback Speed (0.5x - 2.0x)'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showSpeedDialog(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('Media File Properties'),
-              subtitle: Text(media?.filePath ?? 'Local file'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSpeedDialog(BuildContext context) {
-    final playback = context.read<PlaybackEngineService>();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerHigh,
-        title: const Text('Playback Speed'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((spd) {
-            return ListTile(
-              title: Text('${spd}x'),
-              selected: playback.speed == spd,
-              onTap: () {
-                playback.setSpeed(spd);
-                Navigator.pop(ctx);
-              },
-            );
-          }).toList(),
-        ),
-      ),
-    );
+    if (media == null) return;
+    MediaActionsHelper.showMediaOptionsSheet(context, media);
   }
 
   void _showAddToPlaylistDialog(
